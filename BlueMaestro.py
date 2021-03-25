@@ -1,12 +1,15 @@
 # Based on https://github.com/psyciknz/OpenHAB-Scripts :
+# Forked from https://github.com/tomgidden/rpi_bluemaestro_mqtt
 
 # BlueMastro Tempo Disc Advertising packet decoder
-# Called from bluemaestro.py
+
+# Called from driver used to persist or distribute events (e.g., bluemaestro_mqtt.py)
 # This class has the specificis for decoding the advertising packets for the Blue Maestro Tempo Disc https://www.bluemaestro.com/product/tempo-disc-temperature/
 # Unsure if there are any other Blue Maestro products that it would work with.
 # David@andc.nz 15/12/2016
 
 DEBUG = False
+
 # BLE Scanner based on from JCS 06/07/14
 # BLE scanner based on https://github.com/adamf/BLE/blob/master/ble-scanner.py
 # BLE scanner, based on https://code.google.com/p/pybluez/source/browse/trunk/examples/advanced/inquiry-with-rssi.py
@@ -20,6 +23,10 @@ DEBUG = False
 
 # NOTE: Python's struct.pack() will add padding bytes unless you make the endianness explicit. Little endian
 # should be used for BLE. Always start a struct.pack() format string with "<"
+
+# NOTE: Prior versions of this code going back to psyciknz/OpenHAB-Scripts fail to account for negative values for temperature and dewpoint. 
+# This version adds two's compliment logic to ensure both positive and negative temperature values are returned.
+# Function twos_comp() and how it is called adapted from https://github.com/cosmorogers/OpenHAB-Scripts
 
 import collections
 import os
@@ -62,6 +69,12 @@ def init():
 
 def get(sock, callback):
     return parse_events(sock, callback)
+
+def twos_comp(val, bits):
+    """compute the 2's complement of int value val"""
+    if (val & (1 << (bits - 1))) != 0: # if sign bit is set e.g., 8bit: 128-255
+        val = val - (1 << bits)        # compute negative value
+    return val                         # return positive value as is
 
 def returnnumberpacket(pkt):
     myInteger = 0
@@ -197,14 +210,14 @@ def parse_events(sock, callback, loop_count=100):
                         ret["mac"] = returnhexpacket(pkt[report_pkt_offset + 3: report_pkt_offset + 9])
 
                         if (ret['model'] == 27 ): # Purple
-                            ret["temperature"] = float(returnnumberpacket(pkt[report_pkt_offset + 23:report_pkt_offset + 25]))/10
+                            ret["temperature"] = float(twos_comp(int(returnhexpacket(pkt[report_pkt_offset + 23:report_pkt_offset + 25]), 16), 16 ))/10
                             ret["humidity"] = float(returnnumberpacket(pkt[report_pkt_offset + 25:report_pkt_offset + 27]))/10
                             ret["pressure"] = float(returnnumberpacket(pkt[report_pkt_offset + 27:report_pkt_offset + 29]))/10
 
                         else: #if (ret['model'] == 23 ): # Blue
-                            ret["temperature"] = float(returnnumberpacket(pkt[report_pkt_offset + 23:report_pkt_offset + 25]))/10
+                            ret["temperature"] = float(twos_comp(int(returnhexpacket(pkt[report_pkt_offset + 23:report_pkt_offset + 25]), 16), 16 ))/10
                             ret["humidity"] = float(returnnumberpacket(pkt[report_pkt_offset + 25:report_pkt_offset + 27]))/10
-                            ret["dewpoint"] = float(returnnumberpacket(pkt[report_pkt_offset + 27:report_pkt_offset + 29]))/10
+                            ret["dewpoint"] = float(twos_comp(int(returnhexpacket(pkt[report_pkt_offset + 27:report_pkt_offset + 29]), 16), 16 ))/10
 
 
                         ret["battery"] = float(float(returnnumberpacket(pkt[report_pkt_offset + 18:report_pkt_offset + 19]) / float(25500) ) * 100)

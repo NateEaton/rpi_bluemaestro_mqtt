@@ -1,0 +1,12 @@
+[Unit]
+Description=Blue Maestro MQTT service
+After=network.target
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=2
+ExecStart=/usr/bin/python3 /home/pi/bluemaestro_mqtt.py
+
+[Install]
+WantedBy=multi-user.target
