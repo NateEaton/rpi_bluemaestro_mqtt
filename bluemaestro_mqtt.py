@@ -53,28 +53,33 @@ mqtt.username_pw_set(username, password)
 mqtt.connect(mqtt_host, mqtt_port, keepalive)
 mqtt.loop_start()
 
-
-def callback(data):
-    now = time.time()
-    timestamp = int(now)
-    if 'data' in data: data['data'] = base64.b64encode(data['data'])
-    print (data)
-
-    try:
-        mqtt.publish('{}/{}/watchdog'.format(topic, data['name']), 'reset', retain=False)
-        for k, v in data.items():
-            mqtt.publish('{}/{}/{}'.format(topic, data['name'], k), v, retain=False)
-            mqtt.publish('{}/{}/{}/timestamp'.format(topic, data['name'], k), timestamp, retain=False)
-    except ValueError as e:
-        print (e)
-        print (data)
-
-
 try:
+
+    sensor = BlueMaestro.init()
+
     while True:
         try:
-            sensor = BlueMaestro.init()
-            BlueMaestro.get(sensor, callback)
+            resultList = BlueMaestro.parse_events(sensor, 10)
+
+            now = time.time()
+            timestamp = int(now)
+
+            print("Number of devices found: %s" % ( len(resultList) ))
+
+            for data in resultList:
+
+                if 'data' in data: data['data'] = base64.b64encode(data['data'])
+                print (data)
+
+                try:
+                    mqtt.publish('{}/{}/watchdog'.format(topic, data['name']), 'reset', retain=False)
+                    for k, v in data.items():
+                        mqtt.publish('{}/{}/{}'.format(topic, data['name'], k), v, retain=False)
+                        mqtt.publish('{}/{}/{}/timestamp'.format(topic, data['name'], k), timestamp, retain=False)
+                except ValueError as e:
+                    print (e)
+                    print (data)
+
             time.sleep(frequency)
 
         except IOError as e:

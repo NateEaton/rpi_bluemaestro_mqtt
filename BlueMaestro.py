@@ -3,12 +3,12 @@
 
 # BlueMastro Tempo Disc Advertising packet decoder
 
+DEBUG = False
+
 # Called from driver used to persist or distribute events (e.g., bluemaestro_mqtt.py)
 # This class has the specificis for decoding the advertising packets for the Blue Maestro Tempo Disc https://www.bluemaestro.com/product/tempo-disc-temperature/
 # Unsure if there are any other Blue Maestro products that it would work with.
 # David@andc.nz 15/12/2016
-
-DEBUG = False
 
 # BLE Scanner based on from JCS 06/07/14
 # BLE scanner based on https://github.com/adamf/BLE/blob/master/ble-scanner.py
@@ -33,6 +33,9 @@ import os
 import sys
 import struct
 import bluetooth._bluetooth as bluez
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
 
 LE_META_EVENT = 0x3e
 LE_PUBLIC_ADDRESS=0x00
@@ -66,9 +69,6 @@ def init():
     hci_le_set_scan_parameters(sock)
     hci_enable_le_scan(sock)
     return sock
-
-def get(sock, callback):
-    return parse_events(sock, callback)
 
 def twos_comp(val, bits):
     """compute the 2's complement of int value val"""
@@ -150,7 +150,7 @@ def hci_le_set_scan_parameters(sock):
     OWN_TYPE = SCAN_RANDOM
     SCAN_TYPE = 0x01
 
-def parse_events(sock, callback, loop_count=100):
+def parse_events(sock, loop_count=100):
     old_filter = sock.getsockopt( bluez.SOL_HCI, bluez.HCI_FILTER, 14)
 
     # perform a device inquiry on bluetooth device #0
@@ -162,10 +162,11 @@ def parse_events(sock, callback, loop_count=100):
     bluez.hci_filter_set_ptype(flt, bluez.HCI_EVENT_PKT)
     sock.setsockopt( bluez.SOL_HCI, bluez.HCI_FILTER, flt )
     done = False
-    results = {}
+    results = []
     ret = {}
 
     for i in range(0, loop_count):
+        logging.debug("parse_events main loop, i=%s" % i)
         pkt = sock.recv(255)
         ptype, event, plen = struct.unpack("BBB", pkt[:3])
 
@@ -188,8 +189,11 @@ def parse_events(sock, callback, loop_count=100):
             elif subevent == EVT_LE_ADVERTISING_REPORT:
                 num_reports = struct.unpack("B", pkt[0:1])[0]
                 report_pkt_offset = 0
+                mac=returnhexpacket(pkt[report_pkt_offset + 3: report_pkt_offset + 9])
+                logging.debug("parse_events adv subevent mac=%s" % mac)
 
                 for i in range(0, num_reports):
+                    logging.debug("parse_events inner loop, i=%s" % i)
                     company = returnhexpacket(pkt[report_pkt_offset + 15: report_pkt_offset + 17])
 
                     if (DEBUG == True):
@@ -198,6 +202,9 @@ def parse_events(sock, callback, loop_count=100):
                     nm = returnstringpacket(pkt[report_pkt_offset+33:report_pkt_offset+33+8])
 
                     if (company == "3301" or nm=='C481AF21' or nm=='C2E4EB1B'):
+
+                        logging.debug("Name = %s" % nm)
+                        logging.debug("Company 3301")
 
                         nameLength = int(pkt[report_pkt_offset + 32])
                         name = returnstringpacket(pkt[report_pkt_offset + 33:report_pkt_offset + (33+nameLength-1)])
@@ -222,7 +229,10 @@ def parse_events(sock, callback, loop_count=100):
 
                         ret["battery"] = float(float(returnnumberpacket(pkt[report_pkt_offset + 18:report_pkt_offset + 19]) / float(25500) ) * 100)
                         ret["data"] = pkt
-                        callback(ret)
+
+                        logging.debug("data to return")
+
+                        results.append( ret )
 
     sock.setsockopt( bluez.SOL_HCI, bluez.HCI_FILTER, old_filter )
     return results
