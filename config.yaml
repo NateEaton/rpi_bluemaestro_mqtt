@@ -1,0 +1,12 @@
+mqtt:
+  host: 192.168.0.65
+  port: 1883
+  keepalive: 60
+  username: hamquser
+  password: mqtt.2469!
+  client_name: BluetoothMQTTBridge
+  root_topic: bluemaestro
+monitor: 
+  frequency: 10
+  temperature_calibrate: 0
+

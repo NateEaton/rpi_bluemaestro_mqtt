@@ -1,9 +1,8 @@
 # Based on https://github.com/psyciknz/OpenHAB-Scripts :
 # Forked from https://github.com/tomgidden/rpi_bluemaestro_mqtt
+# Adding logging
 
 # BlueMastro Tempo Disc Advertising packet decoder
-
-DEBUG = False
 
 # Called from driver used to persist or distribute events (e.g., bluemaestro_mqtt.py)
 # This class has the specificis for decoding the advertising packets for the Blue Maestro Tempo Disc https://www.bluemaestro.com/product/tempo-disc-temperature/
@@ -34,8 +33,6 @@ import sys
 import struct
 import bluetooth._bluetooth as bluez
 import logging
-
-logging.basicConfig(level=logging.DEBUG)
 
 LE_META_EVENT = 0x3e
 LE_PUBLIC_ADDRESS=0x00
@@ -97,12 +94,14 @@ def returnhexpacket(pkt):
     return myString
 
 def printpacket(pkt):
+    myString = "";
     for c in pkt:
-        sys.stdout.write("0x%02x, " % c)
-    sys.stdout.write("\n")
+        myString += "0x%02x, " % c
+    logging.debug("Hex: {}".format(myString))
+    myString = "";
     for c in pkt:
-        sys.stdout.write("%d, " % c)
-    sys.stdout.write("\n")
+        myString += "%d, " % c
+    logging.debug("Dec: {}".format(myString))
 
 def get_packed_bdaddr(bdaddr_string):
     packable_addr = []
@@ -196,8 +195,7 @@ def parse_events(sock, loop_count=100):
                     logging.debug("parse_events inner loop, i=%s" % i)
                     company = returnhexpacket(pkt[report_pkt_offset + 15: report_pkt_offset + 17])
 
-                    if (DEBUG == True):
-                        printpacket(pkt)
+                    printpacket(pkt)
 
                     nm = returnstringpacket(pkt[report_pkt_offset+33:report_pkt_offset+33+8])
 
