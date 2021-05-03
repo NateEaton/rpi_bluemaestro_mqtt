@@ -7,7 +7,7 @@ with open("README.md", "r") as fh:
 setuptools.setup(
      name='rpi_bluemaestro_mqtt',
      version='0.1',
-     scripts=['bluemaestro_mqtt'] ,
+     scripts=['bluemaestro_mqtt.py'] ,
      author="Nathan Eaton",
      author_email="nate.eaton.jr@gmail.com",
      description="A Blue Maestro sensor package",
